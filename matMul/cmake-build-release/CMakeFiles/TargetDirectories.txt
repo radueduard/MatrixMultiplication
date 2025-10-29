@@ -1,0 +1,3 @@
+/home/radue/IdeaProjects/kmp-native-wizard/matMul/cmake-build-release/CMakeFiles/matMul.dir
+/home/radue/IdeaProjects/kmp-native-wizard/matMul/cmake-build-release/CMakeFiles/edit_cache.dir
+/home/radue/IdeaProjects/kmp-native-wizard/matMul/cmake-build-release/CMakeFiles/rebuild_cache.dir

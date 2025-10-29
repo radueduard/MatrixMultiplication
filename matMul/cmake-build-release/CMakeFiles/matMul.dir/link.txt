@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC -O3 -DNDEBUG -shared -Wl,-soname,libmatMul.so -o libmatMul.so CMakeFiles/matMul.dir/src/matrixNative.cpp.o CMakeFiles/matMul.dir/src/matrixJNI.cpp.o 
