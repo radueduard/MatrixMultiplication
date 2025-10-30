@@ -11,6 +11,8 @@ repositories {
 }
 
 kotlin {
+    jvmToolchain(20)
+
     jvm {
         compilations.all {
             kotlinOptions.jvmTarget = "11"
@@ -120,5 +122,4 @@ tasks.named<Test>("jvmTest") {
         showStackTraces = true
     }
 }
-
 
