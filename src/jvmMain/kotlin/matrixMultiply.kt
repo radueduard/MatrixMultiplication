@@ -35,6 +35,7 @@ object MatrixMultiplierCPP {
         result: DoubleArray
     )
 
+    @Suppress("UNCHECKED_CAST")
     fun <T> multiplyMatrices(n: Int, m: Int, l: Int, matrixA: Array<T>, matrixB: Array<T>) : Array<T> {
         when (matrixA.first()!!::class) {
             Int::class -> {

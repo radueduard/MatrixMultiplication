@@ -5,5 +5,4 @@ pluginManagement {
     }
 }
 
-rootProject.name = "KotlinNativeTemplate"
-include("JNIMatrixMultiplier")
+rootProject.name = "MatrixMultiplier"

@@ -1,6 +1,6 @@
 #include "matMul.h"
 
-#include <cblas.h>
+//#include <cblas.h>
 #include <type_traits>
 #include <vector>
 #include <thread>

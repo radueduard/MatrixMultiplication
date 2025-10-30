@@ -35,20 +35,25 @@ kotlin {
                 val matMul by creating {
                     packageName("matMul")
                     definitionFile.set(project.file("src/nativeInterop/cinterop/matMul.def"))
-                    includeDirs.allHeaders(projectDir.resolve("matMul/include"))
+                    includeDirs.allHeaders(project.file("matMul/include"))
                 }
             }
         }
         binaries {
             executable {
                 entryPoint = "main"
-                runTask?.environment("LD_LIBRARY_PATH", "${projectDir}/matMul/cmake-build-release")
+//                when (hostOs) {
+//                    "Mac OS X" -> runTask?.environment("DYLD_LIBRARY_PATH", "${projectDir}/matMul/cmake-build-release")
+//                    "Linux" -> runTask?.environment("LD_LIBRARY_PATH", "${projectDir}/matMul/cmake-build-release")
+//                }
             }
+
             all {
-                linkerOpts.add("-L${projectDir}/matMul/cmake-build-release")
+                linkerOpts.add("-L${project.projectDir}/matMul/cmake-build-release")
                 linkerOpts.add("-lmatMul")
-                linkerOpts.add("-L/usr/lib/x86_64-linux-gnu")
-                linkerOpts.add("-lopenblas")
+                // Set rpath for runtime library loading
+                linkerOpts.add("-rpath")
+                linkerOpts.add("${project.projectDir}/matMul/cmake-build-release")
             }
         }
     }
@@ -58,27 +63,29 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
         }
     }
+    sourceSets.jvmTest.dependencies {
+        implementation(kotlin("test"))
+        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    }
 }
 
 // Task to configure CMake for the matMul library
 val cmakeConfigure = tasks.register<Exec>("cmakeConfigure") {
-    workingDir = file("matMul/cmake-build-release")
+    val buildDir = layout.projectDirectory.dir("matMul/cmake-build-release")
+    workingDir = buildDir.asFile
     commandLine("cmake", "..", "-DCMAKE_BUILD_TYPE=Release")
 
-    notCompatibleWithConfigurationCache("Uses exec task with workingDir")
-
     doFirst {
-        file("matMul/cmake-build-release").mkdirs()
+        buildDir.asFile.mkdirs()
     }
 }
 
 // Task to build the matMul library (both native and JNI)
 val buildMatMulLibrary = tasks.register<Exec>("buildMatMulLibrary") {
     dependsOn(cmakeConfigure)
-    workingDir = file("matMul/cmake-build-release")
+    val buildDir = layout.projectDirectory.dir("matMul/cmake-build-release")
+    workingDir = buildDir.asFile
     commandLine("make")
-
-    notCompatibleWithConfigurationCache("Uses exec task with workingDir")
 }
 
 // Make sure the JNI library is built before JVM compilation
@@ -86,21 +93,32 @@ tasks.named("compileKotlinJvm") {
     dependsOn(buildMatMulLibrary)
 }
 
-// Configure JVM to find the native library
-tasks.withType<JavaExec> {
-    systemProperty("java.library.path", "${projectDir}/matMul/cmake-build-release")
+
+// Configure environment for native test tasks
+tasks.matching { it.name.contains("nativeTest") || it.name.contains("Test") && it.name.contains("native") }.configureEach {
+    if (this is Exec) {
+        environment("LD_LIBRARY_PATH", "${project.projectDir}/matMul/cmake-build-release")
+        environment("DYLD_LIBRARY_PATH", "${project.projectDir}/matMul/cmake-build-release")
+    }
 }
 
-// Create a custom run task for JVM
-tasks.register<JavaExec>("runJvm") {
-    dependsOn("jvmJar", "buildMatMulLibrary")
-    group = "application"
-    description = "Run the JVM application with matrix multiplication"
-    classpath = files(
-        tasks.named("jvmJar").get().outputs.files,
-        configurations.named("jvmRuntimeClasspath").get()
-    )
-    mainClass.set("matrixMultiply.MainKt")
-    systemProperty("java.library.path", "${projectDir}/matMul/cmake-build-release")
+// Configure JVM to find the native library
+tasks.withType<JavaExec> {
+    systemProperty("java.library.path", "${project.projectDir}/matMul/cmake-build-release")
 }
+
+// Configure JVM test task
+tasks.named<Test>("jvmTest") {
+    dependsOn(buildMatMulLibrary)
+    systemProperty("java.library.path", "${project.projectDir}/matMul/cmake-build-release")
+
+    testLogging {
+        events("passed", "skipped", "failed")
+        showStandardStreams = true
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+    }
+}
+
 

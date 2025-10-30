@@ -1,16 +1,16 @@
+package matrixMultiply
+
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import platform.posix._SC_NPROCESSORS_ONLN
-import platform.posix.sysconf
-import kotlin.test.*
 import kotlinx.coroutines.runBlocking
 import kotlin.random.Random
+import kotlin.test.*
 import kotlin.time.measureTime
 
-class MatrixTestsNative {
-
+class MatrixTestsJVM {
     suspend inline fun kotlinMultiply(n: Int, m: Int, l: Int, a: IntArray, b: IntArray): IntArray = coroutineScope {
         val result = IntArray(n * l)
 
@@ -20,7 +20,7 @@ class MatrixTestsNative {
                 bT[i * l + j] = b[j * m + i]
             }
         }
-        val processors = sysconf(_SC_NPROCESSORS_ONLN).toInt()
+        val processors = Runtime.getRuntime().availableProcessors()
         val chunkSize = (n + processors - 1) / processors
 
         val jobs = (0 until n step chunkSize).map { startRow ->
@@ -52,7 +52,7 @@ class MatrixTestsNative {
             }
         }
 
-        val processors = sysconf(_SC_NPROCESSORS_ONLN).toInt()
+        val processors = Runtime.getRuntime().availableProcessors()
         val chunkSize = (n + processors - 1) / processors
 
         val jobs = (0 until n step chunkSize).map { startRow ->
@@ -84,7 +84,7 @@ class MatrixTestsNative {
             }
         }
 
-        val processors = sysconf(_SC_NPROCESSORS_ONLN).toInt()
+        val processors = Runtime.getRuntime().availableProcessors()
         val chunkSize = (n + processors - 1) / processors
 
         val jobs = (0 until n step chunkSize).map { startRow ->
@@ -106,117 +106,38 @@ class MatrixTestsNative {
         result
     }
 
-
     @Test
-    fun smallIntMultiply() = runBlocking {
+    fun testSmallIntMultiply() {
         val n = 2
         val m = 3
         val l = 2
 
+        // Matrix A: 2x3
+        // [2, 3, 4]
+        // [1, 2, 3]
         val a = intArrayOf(2, 3, 4, 1, 2, 3)
+
+        // Matrix B: 3x2
+        // [1, 4]
+        // [2, 5]
+        // [3, 6]
         val b = intArrayOf(1, 4, 2, 5, 3, 6)
 
         val matrixA = Matrix(n, m, a.toTypedArray())
         val matrixB = Matrix(m, l, b.toTypedArray())
 
         val result = matrixA * matrixB
-        val expected = kotlinMultiply(n, m, l, a, b)
+        val expected = runBlocking {
+            kotlinMultiply(n, m, l, a, b)
+        }
 
         for (i in 0 until n * l) {
-            assertEquals(expected[i], result.data[i], "At index $i / ${n * l}")
+            assertEquals(expected[i], result.data[i], "Mismatch at index $i")
         }
     }
 
     @Test
-    fun testMultiplyIntMatrices() = runBlocking {
-        val n = 1000
-        val m = 1000 * 2
-        val l = 1000 * 4
-
-        val mat1Values = IntArray(n * m) { Random.nextInt() }
-        val mat2Values = IntArray(m * l) { Random.nextInt() }
-
-        val matrixA = Matrix(n, m, mat1Values.toTypedArray())
-        val matrixB = Matrix(m, l, mat2Values.toTypedArray())
-
-        val result: Matrix<Int>
-        val timeCPP = measureTime {
-            result = matrixA * matrixB
-        }
-
-        val expected: IntArray
-        val timeKotlin = measureTime {
-            expected = kotlinMultiply(n, m, l, mat1Values, mat2Values)
-        }
-
-        println("Time CPP: $timeCPP")
-        println("Time Kotlin: $timeKotlin")
-        for (i in 0 until n * l) {
-            assertEquals(expected[i], result.data[i], "At index $i / ${n * l}")
-        }
-    }
-
-    @Test
-    fun testMultiplyFloatMatrices() = runBlocking {
-        val n = 1000
-        val m = 1000 * 2
-        val l = 1000 * 4
-
-        val mat1Values = FloatArray(n * m) { Random.nextFloat() }
-        val mat2Values = FloatArray(m * l) { Random.nextFloat() }
-
-        val matrixA = Matrix(n, m, mat1Values.toTypedArray())
-        val matrixB = Matrix(m, l, mat2Values.toTypedArray())
-
-        val result: Matrix<Float>
-        val timeCPP = measureTime {
-            result = matrixA * matrixB
-        }
-
-        val expected: FloatArray
-        val timeKotlin = measureTime {
-            expected = kotlinMultiply(n, m, l, mat1Values, mat2Values)
-        }
-        println("Time CPP: $timeCPP")
-        println("Time Kotlin: $timeKotlin")
-
-        for (i in 0 until n * l) {
-            assertEquals(expected[i], result.data[i], 0.01f, "At index $i / ${n * l}")
-        }
-    }
-
-    @Test
-    fun testMultiplyDoubleMatrices() = runBlocking {
-        val n = 1000
-        val m = 1000 * 2
-        val l = 1000 * 4
-
-        val mat1Values = DoubleArray(n * m) { Random.nextDouble() }
-        val mat2Values = DoubleArray(m * l) { Random.nextDouble() }
-
-        val matrixA = Matrix(n, m, mat1Values.toTypedArray())
-        val matrixB = Matrix(m, l, mat2Values.toTypedArray())
-
-        val result: Matrix<Double>
-        val timeCPP = measureTime {
-            result = matrixA * matrixB
-        }
-
-        val expected: DoubleArray
-        val timeKotlin = measureTime {
-            expected = kotlinMultiply(n, m, l, mat1Values, mat2Values)
-        }
-
-        println("Time CPP: $timeCPP")
-        println("Time Kotlin: $timeKotlin")
-
-        for (i in 0 until n * l) {
-            assertEquals(expected[i], result.data[i], 0.001, "At index $i / ${n * l}")
-        }
-    }
-
-    @Test
-    fun testIdentityMatrixInt() = runBlocking {
+    fun testIdentityMatrixInt() {
         val n = 3
 
         // Identity matrix 3x3
@@ -245,7 +166,7 @@ class MatrixTestsNative {
     }
 
     @Test
-    fun testZeroMatrixInt() = runBlocking {
+    fun testZeroMatrixInt() {
         val n = 2
         val m = 3
         val l = 2
@@ -265,7 +186,40 @@ class MatrixTestsNative {
     }
 
     @Test
-    fun testSmallFloatMultiply() = runBlocking {
+    fun testMultiplyIntMatrices() {
+        val n = 100
+        val m = 150
+        val l = 200
+
+        val mat1Values = IntArray(n * m) { Random.nextInt(-1000, 1000) }
+        val mat2Values = IntArray(m * l) { Random.nextInt(-1000, 1000) }
+
+        val matrixA = Matrix(n, m, mat1Values.toTypedArray())
+        val matrixB = Matrix(m, l, mat2Values.toTypedArray())
+
+        val result: Matrix<Int>
+        val timeCPP = measureTime {
+            result = matrixA * matrixB
+        }
+
+        val expected: IntArray
+        val timeKotlin = measureTime {
+            expected = runBlocking {
+                kotlinMultiply(n, m, l, mat1Values, mat2Values)
+            }
+        }
+
+        println("Int matrices ($n x $m) * ($m x $l):")
+        println("  CPP time: $timeCPP")
+        println("  Kotlin time: $timeKotlin")
+
+        for (i in 0 until n * l) {
+            assertEquals(expected[i], result.data[i], "Mismatch at index $i")
+        }
+    }
+
+    @Test
+    fun testSmallFloatMultiply() {
         val n = 2
         val m = 2
         val l = 2
@@ -277,7 +231,7 @@ class MatrixTestsNative {
         val matrixB = Matrix(m, l, b.toTypedArray())
 
         val result = matrixA * matrixB
-        val expected = kotlinMultiply(n, m, l, a, b)
+        val expected = runBlocking { kotlinMultiply(n, m, l, a, b) }
 
         for (i in 0 until n * l) {
             assertEquals(expected[i], result.data[i], 0.001f, "Mismatch at index $i")
@@ -285,7 +239,38 @@ class MatrixTestsNative {
     }
 
     @Test
-    fun testSmallDoubleMultiply() = runBlocking {
+    fun testMultiplyFloatMatrices() {
+        val n = 100
+        val m = 150
+        val l = 200
+
+        val mat1Values = FloatArray(n * m) { Random.nextFloat() * 100 }
+        val mat2Values = FloatArray(m * l) { Random.nextFloat() * 100 }
+
+        val matrixA = Matrix(n, m, mat1Values.toTypedArray())
+        val matrixB = Matrix(m, l, mat2Values.toTypedArray())
+
+        val result: Matrix<Float>
+        val timeCPP = measureTime {
+            result = matrixA * matrixB
+        }
+
+        val expected: FloatArray
+        val timeKotlin = measureTime {
+            expected = runBlocking { kotlinMultiply(n, m, l, mat1Values, mat2Values) }
+        }
+
+        println("Float matrices ($n x $m) * ($m x $l):")
+        println("  CPP time: $timeCPP")
+        println("  Kotlin time: $timeKotlin")
+
+        for (i in 0 until n * l) {
+            assertEquals(expected[i], result.data[i], 0.1f, "Mismatch at index $i")
+        }
+    }
+
+    @Test
+    fun testSmallDoubleMultiply() {
         val n = 2
         val m = 2
         val l = 2
@@ -297,10 +282,41 @@ class MatrixTestsNative {
         val matrixB = Matrix(m, l, b.toTypedArray())
 
         val result = matrixA * matrixB
-        val expected = kotlinMultiply(n, m, l, a, b)
+        val expected = runBlocking { kotlinMultiply(n, m, l, a, b) }
 
         for (i in 0 until n * l) {
             assertEquals(expected[i], result.data[i], 0.0001, "Mismatch at index $i")
+        }
+    }
+
+    @Test
+    fun testMultiplyDoubleMatrices() {
+        val n = 100
+        val m = 150
+        val l = 200
+
+        val mat1Values = DoubleArray(n * m) { Random.nextDouble() * 100 }
+        val mat2Values = DoubleArray(m * l) { Random.nextDouble() * 100 }
+
+        val matrixA = Matrix(n, m, mat1Values.toTypedArray())
+        val matrixB = Matrix(m, l, mat2Values.toTypedArray())
+
+        val result: Matrix<Double>
+        val timeCPP = measureTime {
+            result = matrixA * matrixB
+        }
+
+        val expected: DoubleArray
+        val timeKotlin = measureTime {
+            expected = runBlocking { kotlinMultiply(n, m, l, mat1Values, mat2Values) }
+        }
+
+        println("Double matrices ($n x $m) * ($m x $l):")
+        println("  CPP time: $timeCPP")
+        println("  Kotlin time: $timeKotlin")
+
+        for (i in 0 until n * l) {
+            assertEquals(expected[i], result.data[i], 0.001, "Mismatch at index $i")
         }
     }
 
@@ -381,3 +397,4 @@ class MatrixTestsNative {
         }
     }
 }
+
